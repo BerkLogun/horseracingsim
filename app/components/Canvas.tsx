@@ -15,6 +15,7 @@ export default function Canvas() {
     horses, 
     coin, 
     map, 
+    countdown,
     initializeGame, 
     updateGameEntities,
     setStatus
@@ -36,32 +37,34 @@ export default function Canvas() {
     // Clear previous frame
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    if (status === 'running' || status === 'ended') {
-      // Draw map
-      if (map) {
-        map.draw(ctx, canvasSize);
-      }
-      
-      // Draw coin
-      if (coin && !coin.collected) {
-        coin.draw(ctx, canvasSize);
-      }
-      
-      // Draw horses
-      const winner = useGameStore.getState().winner;
-      for (const horse of horses) {
-        // Pass true for isWinner parameter if this horse is the winner
-        const isWinner = status === 'ended' && winner === horse.id;
-        horse.draw(ctx, canvasSize, isWinner);
-      }
+    // Draw map, coin, and horses regardless of status
+    if (map) {
+      map.draw(ctx, canvasSize);
     }
-  }, [status, canvasSize, horses, coin, map]);
+    
+    if (coin && !coin.collected) {
+      coin.draw(ctx, canvasSize);
+    }
+    
+    // Draw horses
+    const winner = useGameStore.getState().winner;
+    for (const horse of horses) {
+      // Pass true for isWinner parameter if this horse is the winner
+      const isWinner = status === 'ended' && winner === horse.id;
+      horse.draw(ctx, canvasSize, isWinner);
+    }
+    
+    // Draw countdown if active
+    if (countdown && countdown.active) {
+      countdown.draw(ctx, canvasSize);
+    }
+  }, [status, canvasSize, horses, coin, map, countdown]);
   
   // Implement game loop
   useEffect(() => {
-    // Only run animation loop when game is in running state
-    if (status !== 'running') {
-      // Make sure animation is canceled when game is not running
+    // Run animation loop for both running state and countdown
+    if (status !== 'running' && !(status === 'waiting' && countdown?.active)) {
+      // Make sure animation is canceled when game is not running or counting down
       if (animationFrameIdRef.current) {
         cancelAnimationFrame(animationFrameIdRef.current);
         animationFrameIdRef.current = 0;
@@ -69,29 +72,34 @@ export default function Canvas() {
       return;
     }
     
-    // Debug output - this should appear in console when game starts running
-    console.log('Starting game loop, horse count:', horses.length);
-    horses.forEach((horse, i) => {
-      console.log(`Horse ${i+1} velocity:`, horse.velocity.x, horse.velocity.y);
-    });
+    // Debug output only when starting running state or countdown
+    if (status === 'running') {
+      console.log('Starting game loop, horse count:', horses.length);
+      horses.forEach((horse, i) => {
+        console.log(`Horse ${i+1} velocity:`, horse.velocity.x, horse.velocity.y);
+      });
+    } else if (countdown?.active) {
+      // console.log('Starting countdown animation, position:', countdown.position);
+    }
     
     const gameLoop = (timestamp: number) => {
       // Calculate delta time (time since last frame)
       const deltaTime = lastTimeRef.current ? (timestamp - lastTimeRef.current) / 1000 : 0.016;
       lastTimeRef.current = timestamp;
       
-      // Update game entities
+      // Update game entities (includes countdown)
       updateGameEntities(deltaTime);
       
       // Check if the game has ended after the update
       const currentGameStatus = useGameStore.getState().status;
+      const currentCountdown = useGameStore.getState().countdown;
       
-      // Only continue the animation loop if the game is still running
-      if (currentGameStatus === 'running') {
+      // Continue animation if running or countdown is active
+      if (currentGameStatus === 'running' || (currentGameStatus === 'waiting' && currentCountdown?.active)) {
         // Request next frame
         animationFrameIdRef.current = requestAnimationFrame(gameLoop);
       } else {
-        // Game has ended, cancel the animation
+        // Game has ended or countdown finished, cancel the animation
         if (animationFrameIdRef.current) {
           cancelAnimationFrame(animationFrameIdRef.current);
           animationFrameIdRef.current = 0;
@@ -143,7 +151,7 @@ export default function Canvas() {
         lastTimeRef.current = 0;
       }
     };
-  }, [status, updateGameEntities, horses]);
+  }, [status, updateGameEntities, horses, countdown]);
   
   return (
     <canvas
@@ -152,8 +160,8 @@ export default function Canvas() {
       height={canvasSize}
       className="block"
       onClick={() => {
-        // Clicking the canvas starts the game if it's in waiting state
-        if (status === 'waiting') {
+        // Clicking the canvas starts the game if it's in waiting state and no countdown is active
+        if (status === 'waiting' && (!countdown || !countdown.active)) {
           setStatus('running');
         }
       }}

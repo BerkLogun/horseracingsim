@@ -3,6 +3,7 @@ import { HorseEntity, CoinEntity, MapEntity, Vector2D } from '../game/types';
 import { Horse } from '../game/entities/Horse';
 import { Coin } from '../game/entities/Coin';
 import { GameMap } from '../game/entities/Map';
+import { Countdown } from '../game/entities/Countdown';
 
 // Generate a random color for horses
 const getRandomColor = () => {
@@ -40,7 +41,9 @@ const GAME_SETTINGS = {
   HORSE_SIZE: 0.02, // 2% of canvas size
   HORSE_SPEED: 0.2, // Increased speed for better visibility
   COIN_SIZE: 0.025, // 2.5% of canvas size
-  GAME_DURATION: 60 // Game duration in seconds
+  GAME_DURATION: 60, // Game duration in seconds
+  COUNTDOWN_SIZE: 0.05, // 5% of canvas size for the countdown (increased)
+  COUNTDOWN_INITIAL: 10 // Start countdown from 10
 };
 
 interface GameState {
@@ -51,6 +54,7 @@ interface GameState {
   coin: CoinEntity | null;
   map: MapEntity | null;
   gameTime: number; // Time elapsed in seconds
+  countdown: Countdown | null;
   
   // Actions
   setStatus: (status: 'waiting' | 'running' | 'ended') => void;
@@ -60,6 +64,7 @@ interface GameState {
   updateGameEntities: (deltaTime: number) => void;
   restartGame: () => void;
   updateGameTime: (deltaTime: number) => void;
+  startCountdown: () => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -70,11 +75,47 @@ export const useGameStore = create<GameState>((set, get) => ({
   coin: null,
   map: null,
   gameTime: 0,
+  countdown: null,
   
   // Actions
   setStatus: (status) => set({ status }),
   setWinner: (horse) => set({ status: 'ended', winner: horse }),
   setCanvasSize: (size) => set({ canvasSize: size }),
+  
+  startCountdown: () => {
+    const { map } = get();
+    if (!map) return;
+    
+    // Create a countdown in the center of the map
+    const countdownPosition = {
+      x: (map.bounds.left + map.bounds.right) / 2,
+      y: (map.bounds.top + map.bounds.bottom) / 2
+    };
+    
+    const countdown = new Countdown(
+      countdownPosition,
+      GAME_SETTINGS.COUNTDOWN_SIZE,
+      GAME_SETTINGS.COUNTDOWN_INITIAL
+    );
+    
+    // Explicitly log and set the velocity to make sure it's moving
+    countdown.velocity = { x: 0.3, y: 0.1 };
+    console.log("Created new countdown with position:", countdownPosition, "and velocity:", countdown.velocity);
+    
+    // Set the game to waiting during countdown
+    set({ 
+      countdown,
+      status: 'waiting'
+    });
+    
+    // Start a timer to change game status to running after countdown completes
+    setTimeout(() => {
+      // Only change status if we're still in waiting state
+      if (get().status === 'waiting') {
+        set({ status: 'running' });
+      }
+    }, GAME_SETTINGS.COUNTDOWN_INITIAL * 1000 + 100); // Add a small buffer
+  },
   
   initializeGame: (horseCount = GAME_SETTINGS.DEFAULT_HORSE_COUNT) => {
     // Create the map with more interesting obstacles
@@ -132,15 +173,50 @@ export const useGameStore = create<GameState>((set, get) => ({
       coin,
       map,
       winner: null,
-      gameTime: 0
+      gameTime: 0,
+      countdown: null
     });
   },
   
   updateGameEntities: (deltaTime) => {
-    const { horses, coin, map, status, gameTime } = get();
+    const { horses, coin, map, status, gameTime, countdown } = get();
     
-    // Don't update if game is not running
-    if (status !== 'running' || !map || !coin) return;
+    // Don't update if there's no map
+    if (!map) return;
+    
+    // Update countdown if active
+    if (countdown && countdown.active) {
+      // Log for debugging
+      
+      countdown.update(deltaTime, map.bounds);
+      
+      // Create a new Countdown object to ensure state updates are detected
+      const updatedCountdown = new Countdown(
+        { ...countdown.position },
+        countdown.size,
+        countdown.countdownValue
+      );
+      
+      // Copy over the other properties
+      updatedCountdown.velocity = { ...countdown.velocity };
+      updatedCountdown.active = countdown.active;
+      updatedCountdown.timePerNumber = countdown.timePerNumber;
+      updatedCountdown.elapsedTime = countdown.elapsedTime;
+      updatedCountdown.pixelated = countdown.pixelated;
+      
+      // When countdown reaches 0, set game to running
+      if (countdown.countdownValue <= 0) {
+        updatedCountdown.active = false;
+        set({ status: 'running', countdown: updatedCountdown });
+      } else {
+        // If countdown is still active, don't update other entities
+        set({ countdown: updatedCountdown }); // Update countdown state with new instance
+        return;
+      }
+    }
+    
+    // Don't update game entities if game is not running or there's no coin
+    if (status !== 'running' || !coin) return;
     
     // Clamp deltaTime to avoid huge jumps
     const clampedDeltaTime = Math.min(deltaTime, 0.1);
@@ -223,10 +299,6 @@ export const useGameStore = create<GameState>((set, get) => ({
   
   restartGame: () => {
     get().initializeGame();
-    set({ 
-      status: 'running', 
-      winner: null,
-      gameTime: 0
-    });
+    get().startCountdown();
   },
 })); 
