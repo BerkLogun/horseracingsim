@@ -34,6 +34,15 @@ const getRandomVelocity = (speed: number): Vector2D => {
   };
 };
 
+// Game settings
+const GAME_SETTINGS = {
+  DEFAULT_HORSE_COUNT: 4,
+  HORSE_SIZE: 0.02, // 2% of canvas size
+  HORSE_SPEED: 0.2, // Increased speed for better visibility
+  COIN_SIZE: 0.025, // 2.5% of canvas size
+  GAME_DURATION: 60 // Game duration in seconds
+};
+
 interface GameState {
   status: 'waiting' | 'running' | 'ended';
   winner: string | null;
@@ -41,6 +50,7 @@ interface GameState {
   horses: HorseEntity[];
   coin: CoinEntity | null;
   map: MapEntity | null;
+  gameTime: number; // Time elapsed in seconds
   
   // Actions
   setStatus: (status: 'waiting' | 'running' | 'ended') => void;
@@ -49,6 +59,7 @@ interface GameState {
   initializeGame: (horseCount?: number) => void;
   updateGameEntities: (deltaTime: number) => void;
   restartGame: () => void;
+  updateGameTime: (deltaTime: number) => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -58,38 +69,53 @@ export const useGameStore = create<GameState>((set, get) => ({
   horses: [],
   coin: null,
   map: null,
+  gameTime: 0,
   
   // Actions
   setStatus: (status) => set({ status }),
   setWinner: (horse) => set({ status: 'ended', winner: horse }),
   setCanvasSize: (size) => set({ canvasSize: size }),
   
-  initializeGame: (horseCount = 4) => {
-    // Create the map
+  initializeGame: (horseCount = GAME_SETTINGS.DEFAULT_HORSE_COUNT) => {
+    // Create the map with more interesting obstacles
     const map = new GameMap(1, 1, [
-      // Add some obstacles (can be customized later)
+      // Top-left obstacle
       {
-        position: { x: 0.3, y: 0.3 },
+        position: { x: 0.2, y: 0.2 },
         size: { x: 0.1, y: 0.1 }
       },
+      // Bottom-right obstacle
       {
-        position: { x: 0.6, y: 0.6 },
+        position: { x: 0.7, y: 0.7 },
+        size: { x: 0.1, y: 0.1 }
+      },
+      // Center obstacle
+      {
+        position: { x: 0.45, y: 0.45 },
         size: { x: 0.1, y: 0.1 }
       }
     ]);
     
     // Create horses with random positions and velocities
     const horses: HorseEntity[] = [];
-    const horseSize = 0.02; // 2% of canvas size
-    const speed = 0.1; // Constant speed for all horses
     
     for (let i = 0; i < horseCount; i++) {
+      // Add some variation to horse speeds (±20% of base speed)
+      const speedVariation = 0.8 + (Math.random() * 0.4); // 0.8 to 1.2
+      const horseSpeed = GAME_SETTINGS.HORSE_SPEED * speedVariation;
+      
+      // Ensure we're creating horses with valid velocities
+      const position = getRandomPosition(map.bounds, GAME_SETTINGS.HORSE_SIZE);
+      const velocity = getRandomVelocity(horseSpeed);
+      
+      console.log(`Creating Horse ${i+1} with speed ${horseSpeed.toFixed(2)}, velocity:`, velocity);
+      
       horses.push(
         new Horse(
           `Horse ${i + 1}`,
-          getRandomPosition(map.bounds, horseSize),
-          getRandomVelocity(speed),
-          horseSize,
+          position,
+          velocity,
+          GAME_SETTINGS.HORSE_SIZE,
           getRandomColor()
         )
       );
@@ -97,8 +123,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     
     // Create a coin at a random position
     const coin = new Coin(
-      getRandomPosition(map.bounds, 0.025),
-      0.025 // 2.5% of canvas size
+      getRandomPosition(map.bounds, GAME_SETTINGS.COIN_SIZE),
+      GAME_SETTINGS.COIN_SIZE
     );
     
     set({
@@ -106,37 +132,101 @@ export const useGameStore = create<GameState>((set, get) => ({
       coin,
       map,
       winner: null,
+      gameTime: 0
     });
   },
   
   updateGameEntities: (deltaTime) => {
-    const { horses, coin, map, status } = get();
+    const { horses, coin, map, status, gameTime } = get();
     
     // Don't update if game is not running
     if (status !== 'running' || !map || !coin) return;
     
-    // Update each horse
-    horses.forEach(horse => {
-      horse.update(deltaTime, horses, map.bounds);
+    // Clamp deltaTime to avoid huge jumps
+    const clampedDeltaTime = Math.min(deltaTime, 0.1);
+    
+    // Update game time
+    get().updateGameTime(clampedDeltaTime);
+    
+    // Check if time is up (no winner after GAME_DURATION seconds)
+    if (gameTime >= GAME_SETTINGS.GAME_DURATION && status === 'running') {
+      set({ status: 'ended', winner: 'Time up! No winner.' });
+      return;
+    }
+    
+    // Make a deep copy of horses to work with
+    const updatedHorses = horses.map(horse => {
+      // Create a new Horse with the same properties
+      const updatedHorse = new Horse(
+        horse.id,
+        { ...horse.position },
+        { ...horse.velocity },
+        horse.size,
+        horse.color
+      );
       
-      // Check for collision with coin
+      // Apply the autonomous movement physics update
+      updatedHorse.update(clampedDeltaTime, horses, map.bounds);
+      
+      return updatedHorse;
+    });
+    
+    // Now process collisions and win condition
+    for (let i = 0; i < updatedHorses.length; i++) {
+      const horse = updatedHorses[i];
+      
+      // Check for collision with coin (win condition)
       if (coin && !coin.collected && horse.checkCollision(coin)) {
         coin.collected = true;
-        set({ winner: horse.id });
+        // Set winner and change status to ended to stop the game
+        set({ status: 'ended', winner: horse.id });
+        return; // End the update immediately when we have a winner
       }
       
-      // Check for collision with map obstacles
-      if (map.checkCollision(horse)) {
-        // Simplified bounce - just reverse velocity
+      // Check for collision with map obstacles using the new collision info method
+      if (map.getCollisionInfo) {
+        const collisionInfo = map.getCollisionInfo(horse);
+        
+        if (collisionInfo.collided) {
+          // Get the collision normal and penetration depth
+          const { normal, penetration } = collisionInfo;
+          
+          // Move the horse out of the obstacle
+          horse.position.x += normal.x * penetration;
+          horse.position.y += normal.y * penetration;
+          
+          // Calculate the dot product of velocity and normal
+          const dotProduct = horse.velocity.x * normal.x + horse.velocity.y * normal.y;
+          
+          // Update the velocity to bounce off the obstacle (reflection formula)
+          horse.velocity.x -= 2 * dotProduct * normal.x;
+          horse.velocity.y -= 2 * dotProduct * normal.y;
+          
+          // Ensure velocity magnitude remains constant
+          horse.normalizeVelocity();
+        }
+      } else if (map.checkCollision(horse)) {
+        // Fallback to old collision handling if getCollisionInfo is not available
         horse.velocity.x = -horse.velocity.x;
         horse.velocity.y = -horse.velocity.y;
       }
-    });
+    }
+    
+    // Update the state with the new positions and velocities
+    set({ horses: updatedHorses });
+  },
+  
+  updateGameTime: (deltaTime) => {
+    const { gameTime } = get();
+    set({ gameTime: gameTime + deltaTime });
   },
   
   restartGame: () => {
-    const state = get();
-    state.initializeGame();
-    set({ status: 'running', winner: null });
+    get().initializeGame();
+    set({ 
+      status: 'running', 
+      winner: null,
+      gameTime: 0
+    });
   },
 })); 

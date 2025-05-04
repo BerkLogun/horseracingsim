@@ -12,7 +12,7 @@ export class Coin implements CoinEntity {
   }
 
   // Draw the coin on the canvas
-  draw(ctx: CanvasRenderingContext2D, canvasSize: number): void {
+  draw(ctx: CanvasRenderingContext2D, canvasSize: number, isWinner?: boolean): void {
     if (this.collected) return; // Don't draw if already collected
     
     // Calculate pixel position and size on canvas
@@ -20,23 +20,27 @@ export class Coin implements CoinEntity {
     const pixelY = this.position.y * canvasSize;
     const pixelSize = this.size * canvasSize;
     
-    // Draw a gold coin
-    ctx.fillStyle = '#FFD700';
+    // Add a golden glow
+    ctx.shadowColor = '#FFD700';
+    ctx.shadowBlur = pixelSize * 0.3;
+    
+    // Draw the coin as a filled circle
+    ctx.fillStyle = '#FFD700'; // Gold color
     ctx.beginPath();
     ctx.arc(pixelX, pixelY, pixelSize, 0, Math.PI * 2);
     ctx.fill();
     
-    // Add a highlight effect to make it look more like a coin
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-    ctx.beginPath();
-    ctx.arc(
-      pixelX - pixelSize * 0.3,
-      pixelY - pixelSize * 0.3,
-      pixelSize * 0.4,
-      0,
-      Math.PI * 2
-    );
-    ctx.fill();
+    // Draw dollar sign in the middle
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = `bold ${pixelSize}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('$', pixelX, pixelY);
+    
+    // Reset shadow
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
   }
 
   // Check for collision with another entity

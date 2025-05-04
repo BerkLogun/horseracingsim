@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import Canvas from './Canvas';
+import WinnerAnnouncement from './WinnerAnnouncement';
 import { useGameStore } from '../utils/store';
 
 export default function GameContainer() {
@@ -43,6 +44,7 @@ export default function GameContainer() {
             <p className="text-xl font-bold">Click Start to begin the race</p>
           </div>
         )}
+        {status === 'ended' && <WinnerAnnouncement />}
       </div>
     </div>
   );

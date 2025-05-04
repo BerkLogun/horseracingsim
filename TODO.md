@@ -39,19 +39,19 @@
 - [X] Set up GameState management system
 
 ## 5. Physics System
-- [ ] Implement constant velocity movement
-- [ ] Create collision detection between entities
-- [ ] Program realistic bouncing physics:
+- [X] Implement constant velocity movement
+- [X] Create collision detection between entities
+- [X] Program realistic bouncing physics:
   - Horse-to-wall collisions
   - Horse-to-horse collisions
-- [ ] Ensure velocity magnitude remains constant after collisions
+- [X] Ensure velocity magnitude remains constant after collisions
 
 ## 6. Game Logic
-- [ ] Set up initial game state with random horse positions
-- [ ] Generate starting velocities and directions
-- [ ] Implement win condition detection (horse touching coin)
-- [ ] Add game reset functionality
-- [ ] Create simple AI for horse movement patterns
+- [X] Set up initial game state with random horse positions
+- [X] Generate starting velocities and directions
+- [X] Implement win condition detection (horse touching coin)
+- [X] Add game reset functionality
+- [X] Add horse movement
 
 ## 7. Default Map Implementation
 - [ ] Create simple default map with walls

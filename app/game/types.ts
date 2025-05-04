@@ -8,7 +8,7 @@ export interface Vector2D {
 export interface Entity {
   position: Vector2D;
   size: number;
-  draw: (ctx: CanvasRenderingContext2D, canvasSize: number) => void;
+  draw: (ctx: CanvasRenderingContext2D, canvasSize: number, isWinner?: boolean) => void;
   checkCollision: (other: Entity) => boolean;
 }
 
@@ -17,7 +17,9 @@ export interface HorseEntity extends Entity {
   id: string;
   velocity: Vector2D;
   color: string;
+  speed: number;
   update: (deltaTime: number, entities: Entity[], mapBounds: MapBounds) => void;
+  normalizeVelocity: () => void; // Make it required now
 }
 
 // Coin entity type
@@ -43,6 +45,7 @@ export interface MapEntity {
   obstacles: Obstacle[];
   draw: (ctx: CanvasRenderingContext2D, canvasSize: number) => void;
   checkCollision: (entity: Entity) => boolean;
+  getCollisionInfo: (entity: Entity) => { collided: boolean; normal: Vector2D; penetration: number };
 }
 
 // Obstacle type
