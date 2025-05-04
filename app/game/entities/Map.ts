@@ -26,8 +26,17 @@ export class GameMap implements MapEntity {
   }
 
   // Draw the map and its obstacles on the canvas
-  draw(ctx: CanvasRenderingContext2D, canvasSize: number, isWinner?: boolean): void {
-    // Draw map boundaries
+  draw(ctx: CanvasRenderingContext2D, canvasSize: number): void {
+    // Draw map background (light gray)
+    ctx.fillStyle = '#f5f5f5';
+    ctx.fillRect(
+      this.bounds.left * canvasSize,
+      this.bounds.top * canvasSize,
+      (this.bounds.right - this.bounds.left) * canvasSize,
+      (this.bounds.bottom - this.bounds.top) * canvasSize
+    );
+    
+    // Draw map boundaries with a thicker, darker line
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 4;
     ctx.strokeRect(
@@ -38,14 +47,20 @@ export class GameMap implements MapEntity {
     );
     
     // Draw obstacles
-    ctx.fillStyle = 'rgba(100, 100, 100, 0.5)';
     for (const obstacle of this.obstacles) {
       const pixelX = obstacle.position.x * canvasSize;
       const pixelY = obstacle.position.y * canvasSize;
       const pixelWidth = obstacle.size.x * canvasSize;
       const pixelHeight = obstacle.size.y * canvasSize;
       
+      // Fill obstacle with semi-transparent dark color
+      ctx.fillStyle = 'rgba(70, 70, 70, 0.7)';
       ctx.fillRect(pixelX, pixelY, pixelWidth, pixelHeight);
+      
+      // Add border to obstacle for better visibility
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(pixelX, pixelY, pixelWidth, pixelHeight);
     }
   }
 

@@ -54,10 +54,10 @@
 - [X] Add horse movement
 
 ## 7. Default Map Implementation
-- [ ] Create simple default map with walls
-- [ ] Implement obstacle rendering
-- [ ] Add collision detection for map boundaries
-- [ ] Design default starting positions
+- [X] Create simple default map with walls
+- [X] Implement obstacle rendering
+- [X] Add collision detection for map boundaries
+- [X] Design default starting positions
 
 ## 8. Map Creator Functionality
 - [ ] Create separate MapCreator component

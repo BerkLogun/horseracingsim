@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { HorseEntity, CoinEntity, MapEntity, Vector2D } from '../game/types';
+import { HorseEntity, CoinEntity, MapEntity } from '../game/types';
 import { Horse } from '../game/entities/Horse';
 import { Coin } from '../game/entities/Coin';
 import { GameMap } from '../game/entities/Map';
@@ -18,23 +18,6 @@ const getRandomColor = () => {
   return colors[Math.floor(Math.random() * colors.length)];
 };
 
-// Generate a random position within the map bounds
-const getRandomPosition = (mapBounds: { left: number; right: number; top: number; bottom: number }, size: number): Vector2D => {
-  return {
-    x: Math.random() * (mapBounds.right - mapBounds.left - size * 2) + mapBounds.left + size,
-    y: Math.random() * (mapBounds.bottom - mapBounds.top - size * 2) + mapBounds.top + size,
-  };
-};
-
-// Generate a random velocity with constant magnitude
-const getRandomVelocity = (speed: number): Vector2D => {
-  const angle = Math.random() * Math.PI * 2; // Random angle in radians
-  return {
-    x: Math.cos(angle) * speed,
-    y: Math.sin(angle) * speed,
-  };
-};
-
 // Game settings
 const GAME_SETTINGS = {
   DEFAULT_HORSE_COUNT: 4,
@@ -45,6 +28,44 @@ const GAME_SETTINGS = {
   COUNTDOWN_SIZE: 0.05, // 5% of canvas size for the countdown (increased)
   COUNTDOWN_INITIAL: 10 // Start countdown from 10
 };
+
+// Starting area for horses - bottom left corner region
+const HORSE_START_AREA = {
+  center: { x: 0.15, y: 0.85 },
+  radius: 0.05 // Small area for grouping horses
+};
+
+// Coin position - top right of the map (opposite to horse start)
+const COIN_POSITION = { x: 0.85, y: 0.15 };
+
+// Define map obstacles for our default race track
+const DEFAULT_MAP_OBSTACLES = [
+  // Center large obstacle
+  {
+    position: { x: 0.4, y: 0.4 },
+    size: { x: 0.2, y: 0.2 }
+  },
+  // Top wall
+  {
+    position: { x: 0.3, y: 0.2 },
+    size: { x: 0.4, y: 0.05 }
+  },
+  // Bottom wall
+  {
+    position: { x: 0.3, y: 0.75 },
+    size: { x: 0.4, y: 0.05 }
+  },
+  // Left wall
+  {
+    position: { x: 0.2, y: 0.3 },
+    size: { x: 0.05, y: 0.4 }
+  },
+  // Right wall
+  {
+    position: { x: 0.75, y: 0.3 },
+    size: { x: 0.05, y: 0.4 }
+  }
+];
 
 interface GameState {
   status: 'waiting' | 'running' | 'ended';
@@ -118,26 +139,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   
   initializeGame: (horseCount = GAME_SETTINGS.DEFAULT_HORSE_COUNT) => {
-    // Create the map with more interesting obstacles
-    const map = new GameMap(1, 1, [
-      // Top-left obstacle
-      {
-        position: { x: 0.2, y: 0.2 },
-        size: { x: 0.1, y: 0.1 }
-      },
-      // Bottom-right obstacle
-      {
-        position: { x: 0.7, y: 0.7 },
-        size: { x: 0.1, y: 0.1 }
-      },
-      // Center obstacle
-      {
-        position: { x: 0.45, y: 0.45 },
-        size: { x: 0.1, y: 0.1 }
-      }
-    ]);
+    // Create the map with the default obstacles
+    const map = new GameMap(1, 1, DEFAULT_MAP_OBSTACLES);
     
-    // Create horses with random positions and velocities
+    // Create horses with positions in a small group, each with different directions
     const horses: HorseEntity[] = [];
     
     for (let i = 0; i < horseCount; i++) {
@@ -145,11 +150,24 @@ export const useGameStore = create<GameState>((set, get) => ({
       const speedVariation = 0.8 + (Math.random() * 0.4); // 0.8 to 1.2
       const horseSpeed = GAME_SETTINGS.HORSE_SPEED * speedVariation;
       
-      // Ensure we're creating horses with valid velocities
-      const position = getRandomPosition(map.bounds, GAME_SETTINGS.HORSE_SIZE);
-      const velocity = getRandomVelocity(horseSpeed);
+      // Calculate different angles for each horse, both for position and velocity
+      const positionAngle = Math.random() * Math.PI * 2;
+      const positionRadius = Math.random() * HORSE_START_AREA.radius;
       
-      console.log(`Creating Horse ${i+1} with speed ${horseSpeed.toFixed(2)}, velocity:`, velocity);
+      // Position horses in a small grouped area
+      const position = {
+        x: HORSE_START_AREA.center.x + Math.cos(positionAngle) * positionRadius,
+        y: HORSE_START_AREA.center.y + Math.sin(positionAngle) * positionRadius
+      };
+      
+      // Calculate different angles for each horse's movement direction
+      const velocityAngle = (i * Math.PI * 2) / horseCount;
+      const velocity = {
+        x: Math.cos(velocityAngle) * horseSpeed,
+        y: Math.sin(velocityAngle) * horseSpeed
+      };
+      
+      console.log(`Creating Horse ${i+1} with speed ${horseSpeed.toFixed(2)}, angle: ${(velocityAngle * 180 / Math.PI).toFixed(0)}°, velocity:`, velocity);
       
       horses.push(
         new Horse(
@@ -162,9 +180,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       );
     }
     
-    // Create a coin at a random position
+    // Create a coin at the opposite side from horses
     const coin = new Coin(
-      getRandomPosition(map.bounds, GAME_SETTINGS.COIN_SIZE),
+      COIN_POSITION,
       GAME_SETTINGS.COIN_SIZE
     );
     
