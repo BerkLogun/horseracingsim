@@ -18,6 +18,8 @@ export interface HorseEntity extends Entity {
   velocity: Vector2D;
   color: string;
   speed: number;
+  collisionEffect: number;
+  trailPositions: Vector2D[];
   update: (deltaTime: number, entities: Entity[], mapBounds: MapBounds) => void;
   normalizeVelocity: () => void; // Make it required now
 }
@@ -35,6 +37,12 @@ export interface MapBounds {
   bottom: number;
 }
 
+// Add SpatialGridCell interface
+export interface SpatialGridCell {
+  entities: Entity[];
+  obstacles: Obstacle[];
+}
+
 // Map entity type
 export interface MapEntity {
   dimensions: {
@@ -46,6 +54,12 @@ export interface MapEntity {
   draw: (ctx: CanvasRenderingContext2D, canvasSize: number) => void;
   checkCollision: (entity: Entity) => boolean;
   getCollisionInfo: (entity: Entity) => { collided: boolean; normal: Vector2D; penetration: number };
+  updateEntityPositions?: (entities: Entity[]) => void;
+  getPotentialCollisions?: (entity: Entity) => { entities: Entity[], obstacles: Obstacle[] };
+  spatialGrid?: SpatialGridCell[][];
+  gridCellSize?: number;
+  gridCols?: number;
+  gridRows?: number;
 }
 
 // Obstacle type

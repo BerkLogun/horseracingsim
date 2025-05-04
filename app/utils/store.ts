@@ -6,8 +6,24 @@ import { GameMap } from '../game/entities/Map';
 import { Countdown } from '../game/entities/Countdown';
 import { getMapById, getDefaultMapId, MapData } from './mapStorage';
 
-// Generate a random color for horses
-const getRandomColor = () => {
+// Map color codes to readable names
+const colorNames: {[key: string]: string} = {
+  '#E63946': 'Red',
+  '#457B9D': 'Blue',
+  '#2A9D8F': 'Teal',
+  '#F4A261': 'Orange',
+  '#8338EC': 'Purple',
+  '#2B9348': 'Green',
+  '#FFD700': 'Gold',
+  '#FF00FF': 'Magenta',
+  '#00FFFF': 'Cyan',
+  '#FF4500': 'OrangeRed',
+  '#9370DB': 'MediumPurple',
+  '#32CD32': 'LimeGreen',
+};
+
+// Get a unique color that hasn't been used yet
+const getUniqueColor = (usedColors: string[] = []) => {
   const colors = [
     '#E63946', // Red
     '#457B9D', // Blue
@@ -15,8 +31,24 @@ const getRandomColor = () => {
     '#F4A261', // Orange
     '#8338EC', // Purple
     '#2B9348', // Green
+    '#FFD700', // Gold
+    '#FF00FF', // Magenta
+    '#00FFFF', // Cyan
+    '#FF4500', // OrangeRed
+    '#9370DB', // MediumPurple
+    '#32CD32', // LimeGreen
   ];
-  return colors[Math.floor(Math.random() * colors.length)];
+  
+  // Filter out already used colors
+  const availableColors = colors.filter(color => !usedColors.includes(color));
+  
+  // If we've used all colors, return a random one
+  if (availableColors.length === 0) {
+    return colors[Math.floor(Math.random() * colors.length)];
+  }
+  
+  // Return a random color from the available colors
+  return availableColors[Math.floor(Math.random() * availableColors.length)];
 };
 
 // Game settings
@@ -27,7 +59,7 @@ const GAME_SETTINGS = {
   COIN_SIZE: 0.025, // 2.5% of canvas size
   GAME_DURATION: 60, // Game duration in seconds
   COUNTDOWN_SIZE: 0.05, // 5% of canvas size for the countdown (increased)
-  COUNTDOWN_INITIAL: 10 // Start countdown from 10
+  COUNTDOWN_INITIAL: 5 // Start countdown from 10
 };
 
 // Starting area for horses - bottom left corner region
@@ -192,54 +224,27 @@ export const useGameStore = create<GameState>((set, get) => ({
           }
         }
       } else {
-        // If no default map is set, try the old custom_map from localStorage for backward compatibility
-        const savedMap = localStorage.getItem('custom_map');
-        if (savedMap) {
-          const parsedData = JSON.parse(savedMap);
-          console.log('Found legacy custom map with', parsedData.obstacles?.length || 0, 'obstacles');
-          
-          if (parsedData.obstacles && Array.isArray(parsedData.obstacles)) {
-            console.log('Using legacy custom map obstacles');
-            mapObstacles = parsedData.obstacles;
-          }
-          
-          if (parsedData.horseSpawn) {
-            console.log('Using legacy custom horse spawn position:', parsedData.horseSpawn);
-            customHorseStartArea = {
-              center: parsedData.horseSpawn,
-              radius: HORSE_START_AREA.radius
-            };
-          }
-          
-          if (parsedData.coinSpawn) {
-            console.log('Using legacy custom coin position:', parsedData.coinSpawn);
-            customCoinPosition = parsedData.coinSpawn;
-          }
-        }
+        console.log('No default map found, using built-in map obstacles');
       }
     } catch (error) {
-      console.error('Error loading map:', error);
+      console.error('Error loading default map, using built-in map obstacles:', error);
     }
-
-    // Create the map with the obstacles (either custom or default)
+    
+    // Create a map with the specified obstacles
     const map = new GameMap(1, 1, mapObstacles);
     
-    // Create horses with positions in a small group, each with different directions
     const horses: HorseEntity[] = [];
-    
-    // Use the horse spawn area (either custom or default)
+    const horseSpeed = GAME_SETTINGS.HORSE_SPEED;
     const horseStartArea = customHorseStartArea;
     
+    const usedColors: string[] = [];
+    
+    // Create the specified number of horses
     for (let i = 0; i < horseCount; i++) {
-      // Add some variation to horse speeds (±20% of base speed)
-      const speedVariation = 0.8 + (Math.random() * 0.4); // 0.8 to 1.2
-      const horseSpeed = GAME_SETTINGS.HORSE_SPEED * speedVariation;
+      // Calculate different angles for each horse's initial position in the starting area
+      const positionAngle = (i * Math.PI * 2) / horseCount;
+      const positionRadius = Math.min(0.8 * horseStartArea.radius, 0.01 + (Math.random() * 0.01));
       
-      // Calculate different angles for each horse, both for position and velocity
-      const positionAngle = Math.random() * Math.PI * 2;
-      const positionRadius = Math.random() * horseStartArea.radius;
-      
-      // Position horses in a small grouped area around the configured spawn point
       const position = {
         x: horseStartArea.center.x + Math.cos(positionAngle) * positionRadius,
         y: horseStartArea.center.y + Math.sin(positionAngle) * positionRadius
@@ -252,15 +257,22 @@ export const useGameStore = create<GameState>((set, get) => ({
         y: Math.sin(velocityAngle) * horseSpeed
       };
       
-      console.log(`Creating Horse ${i+1} with speed ${horseSpeed.toFixed(2)}, angle: ${(velocityAngle * 180 / Math.PI).toFixed(0)}°, velocity:`, velocity);
+      // Get a unique color for this horse
+      const horseColor = getUniqueColor(usedColors);
+      usedColors.push(horseColor);
+      
+      // Get the readable name for this color
+      const horseName = colorNames[horseColor] || horseColor;
+      
+      console.log(`Creating Horse ${horseName} with speed ${horseSpeed.toFixed(2)}, angle: ${(velocityAngle * 180 / Math.PI).toFixed(0)}°, velocity:`, velocity);
       
       horses.push(
         new Horse(
-          `Horse ${i + 1}`,
+          horseName,
           position,
           velocity,
           GAME_SETTINGS.HORSE_SIZE,
-          getRandomColor()
+          horseColor
         )
       );
     }
@@ -346,15 +358,29 @@ export const useGameStore = create<GameState>((set, get) => ({
         horse.color
       );
       
-      // Apply the autonomous movement physics update
-      updatedHorse.update(clampedDeltaTime, horses, map.bounds);
+      if (updatedHorse.trailPositions) {
+        updatedHorse.trailPositions = [...horse.trailPositions];
+      }
+      
+      if (typeof horse.collisionEffect === 'number') {
+        updatedHorse.collisionEffect = horse.collisionEffect;
+      }
       
       return updatedHorse;
     });
     
-    // Now process collisions and win condition
-    for (let i = 0; i < updatedHorses.length; i++) {
-      const horse = updatedHorses[i];
+    // Update spatial grid with current entity positions
+    // Only if the map has the spatial grid functionality
+    if (map.updateEntityPositions) {
+      // We pass the existing horses instead of updated horses to maintain 
+      // correct references for collision detection this frame
+      map.updateEntityPositions([...horses, coin]);
+    }
+    
+    // Now update each horse's position and handle horse-to-horse collisions
+    for (const horse of updatedHorses) {
+      // Using updated horses for collision since they have the new positions
+      horse.update(clampedDeltaTime, updatedHorses, map.bounds);
       
       // Check for collision with coin (win condition)
       if (coin && !coin.collected && horse.checkCollision(coin)) {
@@ -363,8 +389,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         set({ status: 'ended', winner: horse.id });
         return; // End the update immediately when we have a winner
       }
-      
-      // Check for collision with map obstacles using the new collision info method
+    }
+    
+    // Process collisions with map obstacles after all horse-to-horse interactions
+    for (const horse of updatedHorses) {
+      // Check for collision with map obstacles using the collision info method
       if (map.getCollisionInfo) {
         const collisionInfo = map.getCollisionInfo(horse);
         
@@ -385,11 +414,17 @@ export const useGameStore = create<GameState>((set, get) => ({
           
           // Ensure velocity magnitude remains constant
           horse.normalizeVelocity();
+          
+          // Set collision effect for visual feedback
+          if (typeof horse.collisionEffect === 'number') {
+            horse.collisionEffect = 0.3; // Effect lasts for 0.3 seconds
+          }
         }
       } else if (map.checkCollision(horse)) {
         // Fallback to old collision handling if getCollisionInfo is not available
         horse.velocity.x = -horse.velocity.x;
         horse.velocity.y = -horse.velocity.y;
+        horse.normalizeVelocity();
       }
     }
     
@@ -405,6 +440,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   restartGame: () => {
     // When restarting, we want to preserve the current map and spawn points
     const { currentMapId } = get();
+    
+    // Reset winner state to null to clear any winner effects
+    // Also reset the game time to 0
+    set({ 
+      winner: null,
+      gameTime: 0
+    });
     
     // If we have a current map ID, load it first
     if (currentMapId) {
@@ -517,6 +559,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       } : HORSE_START_AREA;
       
       // Generate horses
+      const usedColors: string[] = [];
+
       for (let i = 0; i < GAME_SETTINGS.DEFAULT_HORSE_COUNT; i++) {
         const speedVariation = 0.8 + (Math.random() * 0.4);
         const horseSpeed = GAME_SETTINGS.HORSE_SPEED * speedVariation;
@@ -535,13 +579,20 @@ export const useGameStore = create<GameState>((set, get) => ({
           y: Math.sin(velocityAngle) * horseSpeed
         };
         
+        // Get a unique color for this horse
+        const horseColor = getUniqueColor(usedColors);
+        usedColors.push(horseColor);
+        
+        // Get the readable name for this color
+        const horseName = colorNames[horseColor] || horseColor;
+        
         horses.push(
           new Horse(
-            `Horse ${i + 1}`,
+            horseName,
             position,
             velocity,
             GAME_SETTINGS.HORSE_SIZE,
-            getRandomColor()
+            horseColor
           )
         );
       }
@@ -563,7 +614,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         coin,
         horseStartArea,
         coinPosition,
-        currentMapId: mapData.id
+        currentMapId: mapData.id,
+        winner: null,  // Reset winner state when loading a map
+        status: 'waiting',  // Ensure game state is waiting
+        gameTime: 0  // Reset game time
       });
       
       return;
@@ -648,7 +702,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       coinPosition,
       horses,
       coin,
-      currentMapId: mapData.id
+      currentMapId: mapData.id,
+      winner: null,  // Reset winner state when loading a map
+      status: 'waiting',  // Ensure game state is waiting
+      gameTime: 0  // Reset game time
     });
   },
 })); 

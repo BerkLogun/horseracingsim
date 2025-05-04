@@ -70,15 +70,15 @@
 - [X] Implement switching between game and map creator modes
 
 ## 9. Visual Enhancements
-- [ ] Add colors for different horses
-- [ ] Implement simple animations for collisions
-- [ ] Create visual indicators for wins
-- [ ] Add optional movement trails for horses
-- [ ] Design start/end game animations
+- [X] Add colors for different horses
+- [X] Implement simple animations for collisions
+- [X] Create visual indicators for wins
+- [X] Add optional movement trails for horses
+- [X] Design start/end game animations
 
 ## 10. State Management & Performance
-- [ ] Optimize collision detection algorithms
-- [ ] Implement efficient rendering (only redraw changed areas)
+- [X] Optimize collision detection algorithms
+- [X] Implement efficient rendering (only redraw changed areas)
 - [ ] Add game state persistence (if needed)
 - [ ] Test and optimize for various screen sizes and devices
 
