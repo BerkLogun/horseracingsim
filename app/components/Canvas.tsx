@@ -21,10 +21,16 @@ export default function Canvas() {
     setStatus
   } = useGameStore();
   
-  // Initialize game when component mounts
+  // Initialize game when component mounts only if there's no map already
   useEffect(() => {
-    initializeGame();
-  }, [initializeGame]);
+    // Only initialize the game if there's no map yet
+    if (!map) {
+      console.log('No map found, initializing game with default map');
+      initializeGame();
+    } else {
+      console.log('Map already exists, skipping initialization');
+    }
+  }, [initializeGame, map]);
   
   // Set up canvas context and draw all game elements
   useEffect(() => {

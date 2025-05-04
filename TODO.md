@@ -60,14 +60,14 @@
 - [X] Design default starting positions
 
 ## 8. Map Creator Functionality
-- [ ] Create separate MapCreator component
-- [ ] Implement canvas drawing functionality:
-  - Draw walls/obstacles with mouse
-  - Erase feature
-  - Clear all feature
-- [ ] Add save/load map functionality
-- [ ] Create UI controls for the map creator
-- [ ] Implement switching between game and map creator modes
+- [X] Create separate MapCreator component
+- [X] Implement canvas drawing functionality:
+  - [X] Draw walls/obstacles with mouse
+  - [X] Erase feature
+  - [X] Clear all feature
+- [X] Add save/load map functionality
+- [X] Create UI controls for the map creator
+- [X] Implement switching between game and map creator modes
 
 ## 9. Visual Enhancements
 - [ ] Add colors for different horses

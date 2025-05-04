@@ -4,15 +4,14 @@ import React, { useEffect, useState } from 'react';
 import { useGameStore } from '../utils/store';
 
 interface GameControlsProps {
-  onRestart: () => void;
+  onModeChange: (mode: 'game' | 'mapCreator') => void;
 }
 
-export default function GameControls({ onRestart }: GameControlsProps) {
-  const { status, startCountdown, countdown } = useGameStore();
+export default function GameControls({ onModeChange }: GameControlsProps) {
+  const { status, startCountdown, restartGame, countdown } = useGameStore();
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
+  const [mode, setMode] = useState<'game' | 'mapCreator'>('game');
   
-  const isGameEnded = status === 'ended';
-  const isGameWaiting = status === 'waiting';
   const isCountdownActive = Boolean(countdown?.active);
   
   // Update local state when countdown changes to force re-render
@@ -36,54 +35,38 @@ export default function GameControls({ onRestart }: GameControlsProps) {
       setCountdownValue(null);
     }
   }, [countdown?.active]);
-  
-  const handleGameAction = () => {
-    // Don't do anything if countdown is active
-    if (isCountdownActive) return;
-    
-    // If game is waiting, start countdown
-    if (isGameWaiting) {
-      startCountdown();
-      console.log('Starting countdown');
-      return;
-    }
-    
-    // If ended or already running, do full restart with countdown
-    onRestart();
-    console.log('Restarting game with countdown');
+
+  const handleModeToggle = () => {
+    const newMode = mode === 'game' ? 'mapCreator' : 'game';
+    setMode(newMode);
+    onModeChange(newMode);
   };
-  
+
   return (
-    <div className="flex flex-wrap gap-3 justify-center">
-      <button
-        onClick={handleGameAction}
-        disabled={isCountdownActive}
-        className={`
-          ${isGameEnded || isGameWaiting 
-            ? 'bg-green-600 hover:bg-green-700' 
-            : 'bg-yellow-600 hover:bg-yellow-700'
-          } 
-          text-white font-semibold py-2 px-4 rounded-lg transition-colors
-          ${isCountdownActive ? 'opacity-50 cursor-not-allowed' : ''}
-        `}
-      >
-        {isGameEnded 
-          ? 'Restart Race' 
-          : isGameWaiting 
-            ? (isCountdownActive ? `Countdown: ${countdownValue}` : 'Start Race')
-            : 'Reset Race'}
-      </button>
+    <div className="w-full flex justify-between items-center mb-4">
+      <div className="flex gap-2">
+        <button
+          className={`px-4 py-2 rounded ${status === 'ended' ? 'bg-green-500' : 'bg-blue-500'} text-white font-semibold transition duration-200`}
+          disabled={isCountdownActive}
+          onClick={() => {
+            if (status === 'ended') {
+              restartGame();
+            } else {
+              startCountdown();
+            }
+          }}
+        >
+          {status === 'waiting' ? 
+            (isCountdownActive ? `Counting: ${countdownValue}` : 'Start Race') : 
+            status === 'ended' ? 'New Race' : 'Reset'}
+        </button>
+      </div>
       
       <button
-        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+        className="px-4 py-2 rounded bg-purple-500 text-white font-semibold transition duration-200"
+        onClick={handleModeToggle}
       >
-        Settings
-      </button>
-      
-      <button
-        className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-      >
-        Map Editor
+        {mode === 'game' ? 'Map Creator' : 'Race Mode'}
       </button>
     </div>
   );

@@ -1,9 +1,10 @@
 import { create } from 'zustand';
-import { HorseEntity, CoinEntity, MapEntity } from '../game/types';
+import { HorseEntity, CoinEntity, MapEntity, Vector2D } from '../game/types';
 import { Horse } from '../game/entities/Horse';
 import { Coin } from '../game/entities/Coin';
 import { GameMap } from '../game/entities/Map';
 import { Countdown } from '../game/entities/Countdown';
+import { getMapById, getDefaultMapId, MapData } from './mapStorage';
 
 // Generate a random color for horses
 const getRandomColor = () => {
@@ -76,6 +77,9 @@ interface GameState {
   map: MapEntity | null;
   gameTime: number; // Time elapsed in seconds
   countdown: Countdown | null;
+  horseStartArea: { center: Vector2D; radius: number };
+  coinPosition: Vector2D;
+  currentMapId: string | null;
   
   // Actions
   setStatus: (status: 'waiting' | 'running' | 'ended') => void;
@@ -86,6 +90,22 @@ interface GameState {
   restartGame: () => void;
   updateGameTime: (deltaTime: number) => void;
   startCountdown: () => void;
+  
+  // Map editor actions
+  setMapObstacles: (obstacles: Array<{ position: Vector2D; size: Vector2D }>) => void;
+  saveCustomMap: (
+    obstacles: Array<{ position: Vector2D; size: Vector2D }>, 
+    horseSpawn?: Vector2D | null, 
+    coinSpawn?: Vector2D | null
+  ) => void;
+  loadCustomMap: () => { 
+    obstacles: Array<{ position: Vector2D; size: Vector2D }>;
+    horseSpawn?: Vector2D;
+    coinSpawn?: Vector2D;
+  } | null;
+  setHorseStartPosition: (position: Vector2D) => void;
+  setCoinPosition: (position: Vector2D) => void;
+  loadMap: (mapData: MapData) => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -97,6 +117,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   map: null,
   gameTime: 0,
   countdown: null,
+  horseStartArea: HORSE_START_AREA,
+  coinPosition: COIN_POSITION,
+  currentMapId: null,
   
   // Actions
   setStatus: (status) => set({ status }),
@@ -139,11 +162,73 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   
   initializeGame: (horseCount = GAME_SETTINGS.DEFAULT_HORSE_COUNT) => {
-    // Create the map with the default obstacles
-    const map = new GameMap(1, 1, DEFAULT_MAP_OBSTACLES);
+    // First check if there's a default map
+    let mapObstacles = DEFAULT_MAP_OBSTACLES;
+    let customHorseStartArea = get().horseStartArea;
+    let customCoinPosition = get().coinPosition;
+    let currentMapId = null;
+    
+    try {
+      // Try to load the default map first
+      const defaultMapId = getDefaultMapId();
+      if (defaultMapId) {
+        const mapData = getMapById(defaultMapId);
+        if (mapData) {
+          console.log('Using default map:', mapData.name);
+          mapObstacles = mapData.obstacles;
+          currentMapId = mapData.id;
+          
+          if (mapData.horseSpawn) {
+            console.log('Using custom horse spawn position:', mapData.horseSpawn);
+            customHorseStartArea = {
+              center: mapData.horseSpawn,
+              radius: HORSE_START_AREA.radius
+            };
+          }
+          
+          if (mapData.coinSpawn) {
+            console.log('Using custom coin position:', mapData.coinSpawn);
+            customCoinPosition = mapData.coinSpawn;
+          }
+        }
+      } else {
+        // If no default map is set, try the old custom_map from localStorage for backward compatibility
+        const savedMap = localStorage.getItem('custom_map');
+        if (savedMap) {
+          const parsedData = JSON.parse(savedMap);
+          console.log('Found legacy custom map with', parsedData.obstacles?.length || 0, 'obstacles');
+          
+          if (parsedData.obstacles && Array.isArray(parsedData.obstacles)) {
+            console.log('Using legacy custom map obstacles');
+            mapObstacles = parsedData.obstacles;
+          }
+          
+          if (parsedData.horseSpawn) {
+            console.log('Using legacy custom horse spawn position:', parsedData.horseSpawn);
+            customHorseStartArea = {
+              center: parsedData.horseSpawn,
+              radius: HORSE_START_AREA.radius
+            };
+          }
+          
+          if (parsedData.coinSpawn) {
+            console.log('Using legacy custom coin position:', parsedData.coinSpawn);
+            customCoinPosition = parsedData.coinSpawn;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading map:', error);
+    }
+
+    // Create the map with the obstacles (either custom or default)
+    const map = new GameMap(1, 1, mapObstacles);
     
     // Create horses with positions in a small group, each with different directions
     const horses: HorseEntity[] = [];
+    
+    // Use the horse spawn area (either custom or default)
+    const horseStartArea = customHorseStartArea;
     
     for (let i = 0; i < horseCount; i++) {
       // Add some variation to horse speeds (±20% of base speed)
@@ -152,12 +237,12 @@ export const useGameStore = create<GameState>((set, get) => ({
       
       // Calculate different angles for each horse, both for position and velocity
       const positionAngle = Math.random() * Math.PI * 2;
-      const positionRadius = Math.random() * HORSE_START_AREA.radius;
+      const positionRadius = Math.random() * horseStartArea.radius;
       
-      // Position horses in a small grouped area
+      // Position horses in a small grouped area around the configured spawn point
       const position = {
-        x: HORSE_START_AREA.center.x + Math.cos(positionAngle) * positionRadius,
-        y: HORSE_START_AREA.center.y + Math.sin(positionAngle) * positionRadius
+        x: horseStartArea.center.x + Math.cos(positionAngle) * positionRadius,
+        y: horseStartArea.center.y + Math.sin(positionAngle) * positionRadius
       };
       
       // Calculate different angles for each horse's movement direction
@@ -180,9 +265,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       );
     }
     
-    // Create a coin at the opposite side from horses
+    // Create a coin at the configured position
+    const coinPosition = customCoinPosition;
     const coin = new Coin(
-      COIN_POSITION,
+      coinPosition,
       GAME_SETTINGS.COIN_SIZE
     );
     
@@ -192,7 +278,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       map,
       winner: null,
       gameTime: 0,
-      countdown: null
+      countdown: null,
+      currentMapId
     });
   },
   
@@ -316,7 +403,252 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   
   restartGame: () => {
+    // When restarting, we want to preserve the current map and spawn points
+    const { currentMapId } = get();
+    
+    // If we have a current map ID, load it first
+    if (currentMapId) {
+      const mapData = getMapById(currentMapId);
+      if (mapData) {
+        console.log(`Restarting with map "${mapData.name}"`);
+        
+        // Use loadMap to apply the current map correctly
+        get().loadMap(mapData);
+        
+        // Then start the countdown
+        get().startCountdown();
+        return;
+      }
+    }
+    
+    // Fallback to default behavior if no map ID or map not found
+    console.log('Restarting with default or previously loaded map');
     get().initializeGame();
     get().startCountdown();
+  },
+  
+  // Map editor actions
+  setMapObstacles: (obstacles) => {
+    const { map } = get();
+    if (!map) return;
+    
+    // Create a new map with the same dimensions but updated obstacles
+    const updatedMap = new GameMap(
+      map.dimensions.width,
+      map.dimensions.height,
+      obstacles
+    );
+    
+    console.log(`Applying ${obstacles.length} obstacles to map`);
+    set({ map: updatedMap });
+  },
+  
+  setHorseStartPosition: (position) => {
+    // Update horse spawn position while keeping the radius the same
+    const updatedHorseStartArea = {
+      center: position,
+      radius: get().horseStartArea.radius
+    };
+    
+    console.log("Setting horse start position to:", position);
+    set({ horseStartArea: updatedHorseStartArea });
+  },
+  
+  setCoinPosition: (position) => {
+    // Update coin position
+    console.log("Setting coin position to:", position);
+    set({ coinPosition: position });
+  },
+  
+  saveCustomMap: (obstacles, horseSpawn, coinSpawn) => {
+    try {
+      const mapData = {
+        obstacles,
+        horseSpawn: horseSpawn || get().horseStartArea.center,
+        coinSpawn: coinSpawn || get().coinPosition,
+        timestamp: new Date().toISOString()
+      };
+      
+      localStorage.setItem('custom_map', JSON.stringify(mapData));
+      console.log('Map saved successfully with', obstacles.length, 'obstacles');
+    } catch (error) {
+      console.error('Failed to save map:', error);
+    }
+  },
+  
+  loadCustomMap: () => {
+    try {
+      const savedMap = localStorage.getItem('custom_map');
+      if (savedMap) {
+        const parsedData = JSON.parse(savedMap);
+        console.log('Loaded map with', parsedData.obstacles?.length || 0, 'obstacles');
+        return parsedData;
+      }
+      console.log('No saved map found');
+      return null;
+    } catch (error) {
+      console.error('Failed to load map:', error);
+      return null;
+    }
+  },
+  
+  // Load a specific map from our map storage
+  loadMap: (mapData: MapData) => {
+    if (!mapData || !mapData.obstacles) {
+      console.error('Invalid map data:', mapData);
+      return;
+    }
+    
+    console.log(`Loading map "${mapData.name}" with ${mapData.obstacles.length} obstacles`);
+    console.log('Horse spawn point:', mapData.horseSpawn);
+    console.log('Coin spawn point:', mapData.coinSpawn);
+    
+    // Get the current map or create a new one if it doesn't exist
+    const map = get().map;
+    if (!map) {
+      console.log('No map exists yet, initializing new map with custom data');
+      // Initialize the game with default values but custom map data
+      const horses: HorseEntity[] = [];
+      
+      // Use the horse spawn area from the map data or default
+      const horseStartArea = mapData.horseSpawn ? {
+        center: mapData.horseSpawn,
+        radius: HORSE_START_AREA.radius
+      } : HORSE_START_AREA;
+      
+      // Generate horses
+      for (let i = 0; i < GAME_SETTINGS.DEFAULT_HORSE_COUNT; i++) {
+        const speedVariation = 0.8 + (Math.random() * 0.4);
+        const horseSpeed = GAME_SETTINGS.HORSE_SPEED * speedVariation;
+        
+        const positionAngle = Math.random() * Math.PI * 2;
+        const positionRadius = Math.random() * horseStartArea.radius;
+        
+        const position = {
+          x: horseStartArea.center.x + Math.cos(positionAngle) * positionRadius,
+          y: horseStartArea.center.y + Math.sin(positionAngle) * positionRadius
+        };
+        
+        const velocityAngle = (i * Math.PI * 2) / GAME_SETTINGS.DEFAULT_HORSE_COUNT;
+        const velocity = {
+          x: Math.cos(velocityAngle) * horseSpeed,
+          y: Math.sin(velocityAngle) * horseSpeed
+        };
+        
+        horses.push(
+          new Horse(
+            `Horse ${i + 1}`,
+            position,
+            velocity,
+            GAME_SETTINGS.HORSE_SIZE,
+            getRandomColor()
+          )
+        );
+      }
+      
+      // Create a coin at the configured position
+      const coinPosition = mapData.coinSpawn || COIN_POSITION;
+      const coin = new Coin(
+        coinPosition,
+        GAME_SETTINGS.COIN_SIZE
+      );
+      
+      // Create a map with the loaded obstacles
+      const newMap = new GameMap(1, 1, mapData.obstacles);
+      
+      // Update the game state
+      set({ 
+        map: newMap, 
+        horses,
+        coin,
+        horseStartArea,
+        coinPosition,
+        currentMapId: mapData.id
+      });
+      
+      return;
+    }
+    
+    // Update the map with the new obstacles if map exists
+    const updatedMap = new GameMap(
+      map.dimensions.width,
+      map.dimensions.height,
+      mapData.obstacles
+    );
+    
+    // Update horse spawn area if provided
+    let horseStartArea = get().horseStartArea;
+    
+    // We need to check explicitly for horseSpawn existence, not just truthy value
+    // This is because we want to apply null/undefined values as well
+    if (Object.prototype.hasOwnProperty.call(mapData, 'horseSpawn')) {
+      if (mapData.horseSpawn) {
+        console.log('Using custom horse spawn position from map:', mapData.horseSpawn);
+        horseStartArea = {
+          center: mapData.horseSpawn,
+          radius: HORSE_START_AREA.radius
+        };
+      } else {
+        console.log('Using default horse spawn position (spawn point was explicitly null/undefined)');
+        horseStartArea = HORSE_START_AREA;
+      }
+    }
+    
+    // Update coin position if provided
+    let coinPosition = get().coinPosition;
+    
+    // Similarly check explicitly for coinSpawn existence
+    if (Object.prototype.hasOwnProperty.call(mapData, 'coinSpawn')) {
+      if (mapData.coinSpawn) {
+        console.log('Using custom coin position from map:', mapData.coinSpawn);
+        coinPosition = mapData.coinSpawn;
+      } else {
+        console.log('Using default coin position (spawn point was explicitly null/undefined)');
+        coinPosition = COIN_POSITION;
+      }
+    }
+    
+    // Get current horses to update their positions
+    const horses = get().horses.map(horse => {
+      // Create a copy of the horse
+      const updatedHorse = new Horse(
+        horse.id,
+        { ...horse.position },
+        { ...horse.velocity },
+        horse.size,
+        horse.color
+      );
+      
+      // Reset horse position to the new spawn area
+      const positionAngle = Math.random() * Math.PI * 2;
+      const positionRadius = Math.random() * horseStartArea.radius;
+      
+      updatedHorse.position = {
+        x: horseStartArea.center.x + Math.cos(positionAngle) * positionRadius,
+        y: horseStartArea.center.y + Math.sin(positionAngle) * positionRadius
+      };
+      
+      return updatedHorse;
+    });
+    
+    // Update the coin if it exists
+    let coin = get().coin;
+    if (coin) {
+      // Create a new coin at the updated position
+      coin = new Coin(
+        coinPosition,
+        GAME_SETTINGS.COIN_SIZE
+      );
+    }
+    
+    // Update the game state
+    set({ 
+      map: updatedMap, 
+      horseStartArea, 
+      coinPosition,
+      horses,
+      coin,
+      currentMapId: mapData.id
+    });
   },
 })); 
