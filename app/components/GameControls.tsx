@@ -42,31 +42,61 @@ export default function GameControls({ onModeChange }: GameControlsProps) {
     onModeChange(newMode);
   };
 
+  const getActionButtonText = () => {
+    if (status === 'waiting') {
+      return isCountdownActive ? `Starting in ${countdownValue}...` : 'Start Race';
+    } else if (status === 'running') {
+      return 'Reset';
+    } else {
+      return 'New Race';
+    }
+  };
+
+  const getActionButtonIcon = () => {
+    if (status === 'waiting') {
+      return isCountdownActive ? '🔄' : '🚩';
+    } else if (status === 'running') {
+      return '🔄';
+    } else {
+      return '🎲';
+    }
+  };
+  
+  const getActionButtonClass = () => {
+    if (status === 'waiting') {
+      return isCountdownActive 
+        ? 'bg-blue-400 hover:bg-blue-500 opacity-70' 
+        : 'bg-green-500 hover:bg-green-600';
+    } else if (status === 'running') {
+      return 'bg-yellow-500 hover:bg-yellow-600';
+    } else {
+      return 'bg-purple-500 hover:bg-purple-600';
+    }
+  };
+
   return (
-    <div className="w-full flex justify-between items-center mb-4">
-      <div className="flex gap-2">
-        <button
-          className={`px-4 py-2 rounded ${status === 'ended' ? 'bg-green-500' : 'bg-blue-500'} text-white font-semibold transition duration-200`}
-          disabled={isCountdownActive}
-          onClick={() => {
-            if (status === 'ended') {
-              restartGame();
-            } else {
-              startCountdown();
-            }
-          }}
-        >
-          {status === 'waiting' ? 
-            (isCountdownActive ? `Counting: ${countdownValue}` : 'Start Race') : 
-            status === 'ended' ? 'New Race' : 'Reset'}
-        </button>
-      </div>
+    <div className="flex flex-wrap gap-3 items-center">
+      <button
+        className={`btn flex items-center gap-2 ${getActionButtonClass()} text-white min-w-[120px] ${isCountdownActive ? 'animate-pulse' : ''}`}
+        disabled={isCountdownActive}
+        onClick={() => {
+          if (status === 'ended') {
+            restartGame();
+          } else {
+            startCountdown();
+          }
+        }}
+      >
+        <span>{getActionButtonIcon()}</span>
+        <span>{getActionButtonText()}</span>
+      </button>
       
       <button
-        className="px-4 py-2 rounded bg-purple-500 text-white font-semibold transition duration-200"
+        className="btn btn-secondary flex items-center gap-2"
         onClick={handleModeToggle}
       >
-        {mode === 'game' ? 'Map Creator' : 'Race Mode'}
+        <span>{mode === 'game' ? '🖌️' : '🏇'}</span>
+        <span>{mode === 'game' ? 'Map Creator' : 'Race Mode'}</span>
       </button>
     </div>
   );

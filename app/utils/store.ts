@@ -5,6 +5,7 @@ import { Coin } from '../game/entities/Coin';
 import { GameMap } from '../game/entities/Map';
 import { Countdown } from '../game/entities/Countdown';
 import { getMapById, getDefaultMapId, MapData } from './mapStorage';
+import { recordWin, recordGamePlayed, getGameStats } from './gameStorage';
 
 // Map color codes to readable names
 const colorNames: {[key: string]: string} = {
@@ -57,8 +58,8 @@ const GAME_SETTINGS = {
   HORSE_SIZE: 0.02, // 2% of canvas size
   HORSE_SPEED: 0.2, // Increased speed for better visibility
   COIN_SIZE: 0.025, // 2.5% of canvas size
-  GAME_DURATION: 60, // Game duration in seconds
-  COUNTDOWN_SIZE: 0.05, // 5% of canvas size for the countdown (increased)
+  GAME_DURATION: 99999, // Game duration in seconds
+  COUNTDOWN_SIZE: 0.1, // 5% of canvas size for the countdown (increased)
   COUNTDOWN_INITIAL: 5 // Start countdown from 10
 };
 
@@ -113,6 +114,12 @@ interface GameState {
   coinPosition: Vector2D;
   currentMapId: string | null;
   
+  // Add stats tracking
+  gameStats: {
+    wins: Record<string, number>;
+    gamesPlayed: number;
+  };
+  
   // Actions
   setStatus: (status: 'waiting' | 'running' | 'ended') => void;
   setWinner: (horse: string | null) => void;
@@ -138,6 +145,9 @@ interface GameState {
   setHorseStartPosition: (position: Vector2D) => void;
   setCoinPosition: (position: Vector2D) => void;
   loadMap: (mapData: MapData) => void;
+  
+  // Add new actions for stats
+  loadGameStats: () => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -152,10 +162,61 @@ export const useGameStore = create<GameState>((set, get) => ({
   horseStartArea: HORSE_START_AREA,
   coinPosition: COIN_POSITION,
   currentMapId: null,
+  gameStats: {
+    wins: {},
+    gamesPlayed: 0
+  },
   
   // Actions
   setStatus: (status) => set({ status }),
-  setWinner: (horse) => set({ status: 'ended', winner: horse }),
+  setWinner: (horse) => {
+    const { currentMapId } = get();
+    set({ status: 'ended', winner: horse });
+    
+    // Only record a win if there's a valid horse (not a timeout)
+    if (horse && !horse.startsWith('Time up')) {
+      // Record the win
+      recordWin(horse);
+      
+      // Also update the current map ID to ensure it persists
+      recordGamePlayed(currentMapId);
+      
+      // Reload the stats to update the UI immediately
+      setTimeout(() => {
+        try {
+          const updatedStats = getGameStats();
+          set({ 
+            gameStats: {
+              wins: updatedStats.wins,
+              gamesPlayed: updatedStats.gamesPlayed
+            }
+          });
+          console.log('Updated game stats after win:', updatedStats);
+        } catch (error) {
+          console.error('Failed to update stats after win:', error);
+        }
+      }, 0);
+    } else {
+      // Record game played without winner
+      recordGamePlayed(currentMapId);
+      
+      // Reload the stats to update the UI immediately
+      setTimeout(() => {
+        try {
+          const updatedStats = getGameStats();
+          set({ 
+            gameStats: {
+              wins: updatedStats.wins,
+              gamesPlayed: updatedStats.gamesPlayed
+            }
+          });
+          console.log('Updated game stats after game end:', updatedStats);
+        } catch (error) {
+          console.error('Failed to update stats after game end:', error);
+        }
+      }, 0);
+    }
+  },
   setCanvasSize: (size) => set({ canvasSize: size }),
   
   startCountdown: () => {
@@ -448,6 +509,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       gameTime: 0
     });
     
+    // Load latest game stats to ensure they're up to date
+    get().loadGameStats();
+    
     // If we have a current map ID, load it first
     if (currentMapId) {
       const mapData = getMapById(currentMapId);
@@ -707,5 +771,22 @@ export const useGameStore = create<GameState>((set, get) => ({
       status: 'waiting',  // Ensure game state is waiting
       gameTime: 0  // Reset game time
     });
+  },
+  
+  loadGameStats: () => {
+    try {
+      const stats = getGameStats();
+      set({ 
+        gameStats: {
+          wins: stats.wins,
+          gamesPlayed: stats.gamesPlayed
+        },
+        // Always update the currentMapId if it exists in storage
+        currentMapId: stats.currentMapId || get().currentMapId
+      });
+      console.log('Loaded game stats:', stats);
+    } catch (error) {
+      console.error('Failed to load game stats:', error);
+    }
   },
 })); 

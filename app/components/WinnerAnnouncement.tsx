@@ -22,7 +22,7 @@ export default function WinnerAnnouncement() {
     }
     
     let startTime: number | null = null;
-    const animationDuration = 1000; // 1 second animation
+    const animationDuration = 1200; // 1.2 second animation
     
     const animate = (timestamp: number) => {
       if (!startTime) startTime = timestamp;
@@ -48,33 +48,67 @@ export default function WinnerAnnouncement() {
   }
   
   // Calculate animation values
-  const scale = 1 + animationProgress * 0.5; // Horse grows to 1.5x size
+  const scale = 1 + Math.sin(animationProgress * Math.PI) * 0.5; // Horse grows in a sine wave pattern
   const translateX = -150 * animationProgress; // Move to the left
+  const rotation = animationProgress * 720; // Spin 2 full rotations
+  
+  // Check if it's a time-up no winner situation
+  const isTimeUp = typeof winner === 'string' && winner.startsWith('Time up');
   
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white">
-      <div className="relative flex items-center justify-center gap-4 p-6 bg-gray-800/80 rounded-xl">
-        {/* Animated horse */}
-        <div 
-          className="relative transition-transform" 
-          style={{
-            transform: `translateX(${translateX}px) scale(${scale})`,
-            width: `${winningHorse.size * canvasSize * 2}px`,
-            height: `${winningHorse.size * canvasSize * 2}px`,
-          }}
-        >
+    <div className="absolute inset-0 flex flex-col items-center justify-center backdrop-blur-sm bg-black/60 text-white">
+      {isTimeUp ? (
+        <div className="bg-red-900/80 p-8 rounded-xl shadow-2xl text-center">
+          <div className="text-5xl mb-4">⏱️</div>
+          <h2 className="text-3xl font-bold mb-2">TIME&apos;S UP!</h2>
+          <p className="text-xl opacity-80">No horse reached the goal</p>
+        </div>
+      ) : (
+        <div className="relative flex flex-col items-center justify-center gap-4 p-8 bg-black/70 rounded-xl shadow-2xl text-center">
+          {/* Confetti effect */}
+          <div className="absolute inset-0 overflow-hidden">
+            {Array.from({ length: 50 }).map((_, i) => (
+              <div
+                key={i}
+                className="absolute w-2 h-2 rounded-full opacity-70"
+                style={{
+                  backgroundColor: ['#FFD700', '#FF6347', '#4169E1', '#32CD32', '#FF69B4'][i % 5],
+                  top: `${Math.random() * 100}%`,
+                  left: `${Math.random() * 100}%`,
+                  animation: `confetti ${1 + Math.random() * 2}s linear infinite`,
+                  animationDelay: `${Math.random() * 2}s`,
+                }}
+              />
+            ))}
+          </div>
+          
+          {/* Trophy */}
+          <div className="text-6xl mb-2">🏆</div>
+          
+          {/* Animated horse */}
           <div 
-            className="absolute inset-0 rounded-full" 
-            style={{ backgroundColor: winningHorse.color }}
-          />
+            className="relative transition-transform my-4" 
+            style={{
+              transform: `translateX(${translateX}px) scale(${scale}) rotate(${rotation}deg)`,
+              width: `${winningHorse.size * canvasSize * 2}px`,
+              height: `${winningHorse.size * canvasSize * 2}px`,
+            }}
+          >
+            <div 
+              className="absolute inset-0 rounded-full shadow-lg" 
+              style={{ backgroundColor: winningHorse.color }}
+            />
+          </div>
+          
+          {/* Winner text */}
+          <div className="text-center">
+            <h2 className="text-4xl font-bold mb-2 tracking-wider">WINNER!</h2>
+            <div className="text-2xl bg-gradient-to-r from-yellow-300 to-amber-500 text-transparent bg-clip-text font-bold">
+              {winningHorse.id}
+            </div>
+          </div>
         </div>
-        
-        {/* Winner text */}
-        <div className="text-center ml-4">
-          <h2 className="text-3xl font-bold mb-2">WINNER!</h2>
-          <p className="text-xl">{winningHorse.id}</p>
-        </div>
-      </div>
+      )}
     </div>
   );
 } 

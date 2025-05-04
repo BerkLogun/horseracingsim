@@ -2,8 +2,12 @@ import App from './components/App';
 
 export default function Home() {
   return (
-    <div className="min-h-screen p-4 sm:p-8">
-      <h1 className="text-2xl font-bold text-center mb-6">Horse Racing Simulation</h1>
+    <div className="container mx-auto max-w-5xl">
+      <div className="mb-4">
+        <p className="text-center text-neutral-600 dark:text-neutral-400">
+          Race horses against each other in this physics-based simulation. Create custom maps or use existing ones!
+        </p>
+      </div>
       <App />
     </div>
   );

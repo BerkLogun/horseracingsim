@@ -79,11 +79,11 @@
 ## 10. State Management & Performance
 - [X] Optimize collision detection algorithms
 - [X] Implement efficient rendering (only redraw changed areas)
-- [ ] Add game state persistence (if needed)
+- [X] Add game state persistence (if needed)
 - [ ] Test and optimize for various screen sizes and devices
 
 ## 11. Additional Features
-- [ ] Add statistics tracking (wins per horse)
+- [X] Add statistics tracking (wins per horse)
 - [ ] Implement game speed controls
 - [ ] Create multiple map layouts
 - [ ] Add sound effects
