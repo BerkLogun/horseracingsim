@@ -1,0 +1,53 @@
+import { CoinEntity, Entity, Vector2D } from '../types';
+
+export class Coin implements CoinEntity {
+  position: Vector2D;
+  size: number;
+  collected: boolean;
+
+  constructor(position: Vector2D, size: number) {
+    this.position = position;
+    this.size = size;
+    this.collected = false;
+  }
+
+  // Draw the coin on the canvas
+  draw(ctx: CanvasRenderingContext2D, canvasSize: number): void {
+    if (this.collected) return; // Don't draw if already collected
+    
+    // Calculate pixel position and size on canvas
+    const pixelX = this.position.x * canvasSize;
+    const pixelY = this.position.y * canvasSize;
+    const pixelSize = this.size * canvasSize;
+    
+    // Draw a gold coin
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath();
+    ctx.arc(pixelX, pixelY, pixelSize, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Add a highlight effect to make it look more like a coin
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.beginPath();
+    ctx.arc(
+      pixelX - pixelSize * 0.3,
+      pixelY - pixelSize * 0.3,
+      pixelSize * 0.4,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  }
+
+  // Check for collision with another entity
+  checkCollision(other: Entity): boolean {
+    // If already collected, no collisions happen
+    if (this.collected) return false;
+    
+    const dx = this.position.x - other.position.x;
+    const dy = this.position.y - other.position.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    return distance < (this.size + other.size);
+  }
+} 

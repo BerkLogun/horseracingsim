@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Horse Racing Simulation Webapp
+
+A self-playing 2D simulation game where 8 colored squares (horses) move around a map trying to reach a coin. The first horse to touch the coin wins.
+
+## Features
+
+- **Self-Playing Simulation**: Watch as 8 horses navigate the map automatically
+- **Physics**: Horses maintain constant speed and bounce realistically off walls and each other
+- **Custom Maps**: Future feature to draw your own maps directly on the canvas
+- **Visual Feedback**: Clear indication of game status and winners
+
+## Game Rules
+
+1. Each horse (represented by a colored square) moves at a constant speed
+2. Horses bounce off walls and each other according to physics rules
+3. The game ends when any horse touches the coin
+4. The simulation restarts automatically after a winner is determined
+
+## Technical Details
+
+- Built with NextJS and TypeScript
+- Canvas-based rendering for smooth animations
+- Collision detection system for interactions
+- Responsive design that works on various screen sizes
+
+## Development Roadmap
+
+- Phase 1: Core simulation with predefined map
+- Phase 2: Statistics and visual enhancements
+- Phase 3: Map creator feature allowing custom maps to be drawn on canvas
+- Phase 4: Additional game modes and settings
 
 ## Getting Started
 
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+npm install
+npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit `http://localhost:3000` to view the simulation.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Contributing
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Contributions are welcome! Please feel free to submit a Pull Request.
